@@ -41,6 +41,18 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+        .file-list {
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+            text-align: left;
+            padding-left: 1rem;
+        }
+        .file-list-item {
+            background-color: #f3f4f6;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            margin-bottom: 0.25rem;
+        }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
@@ -61,7 +73,6 @@
                 + Add New Customer
             </button>
 
-            <!-- Add Customer Form (Initially Hidden) -->
             <div id="add-customer-form-container" class="hidden bg-white p-6 rounded-lg shadow-md mb-8">
                 <h2 class="text-2xl font-semibold mb-4">New Customer Details</h2>
                 <form id="add-customer-form">
@@ -77,10 +88,7 @@
                 </form>
             </div>
 
-            <!-- Customer List -->
-            <div id="customer-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <!-- Customer cards will be injected here by JavaScript -->
-            </div>
+            <div id="customer-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
         </div>
     </div>
 
@@ -97,14 +105,11 @@
                 </button>
             </header>
             
-            <button id="show-add-job-form-btn" class="mb-6 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105">
+            <button id="show-add-job-form-btn" class="mb-6 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md">
                 + Add New Job Report
             </button>
 
-            <!-- Job List -->
-            <div id="job-list" class="space-y-8">
-                <!-- Job cards will be injected here -->
-            </div>
+            <div id="job-list" class="space-y-8"></div>
         </div>
     </div>
     
@@ -115,9 +120,7 @@
                 <h1 id="public-view-name" class="text-3xl font-bold text-gray-900">Service History</h1>
                 <p id="public-view-customer" class="text-gray-600 mt-1"></p>
             </header>
-            <div id="public-job-list" class="space-y-8">
-                <!-- Read-only job cards will be injected here -->
-            </div>
+            <div id="public-job-list" class="space-y-8"></div>
              <footer class="text-center mt-8 text-sm text-gray-500">
                 <p>Powered by Your Company Name</p>
             </footer>
@@ -134,22 +137,22 @@
                     <input type="text" id="job-scope" placeholder="Scope of Job" class="w-full p-2 border rounded-md" required>
                     <textarea id="job-notes" placeholder="Completion Notes" class="w-full p-2 border rounded-md" rows="3"></textarea>
                     
-                    <div id="before-drop-zone" class="border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:border-blue-500 bg-gray-50 transition-colors">
-                        <p class="text-gray-500 pointer-events-none">Drag & drop 'Before' photo here, or click to select</p>
-                        <input type="file" id="before-file-input" class="hidden" accept="image/*">
-                        <p id="before-file-name" class="text-sm font-medium mt-2 text-gray-700"></p>
+                    <div id="before-drop-zone" class="border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:border-blue-500 bg-gray-50">
+                        <p class="text-gray-500 pointer-events-none">Drag & drop 'Before' photos here, or click to select</p>
+                        <input type="file" id="before-file-input" class="hidden" accept="image/*" multiple>
+                        <div id="before-file-list" class="file-list"></div>
                     </div>
 
-                    <div id="after-drop-zone" class="border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:border-blue-500 bg-gray-50 transition-colors">
-                        <p class="text-gray-500 pointer-events-none">Drag & drop 'After' photo here, or click to select</p>
-                        <input type="file" id="after-file-input" class="hidden" accept="image/*">
-                        <p id="after-file-name" class="text-sm font-medium mt-2 text-gray-700"></p>
+                    <div id="after-drop-zone" class="border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:border-blue-500 bg-gray-50">
+                        <p class="text-gray-500 pointer-events-none">Drag & drop 'After' photos here, or click to select</p>
+                        <input type="file" id="after-file-input" class="hidden" accept="image/*" multiple>
+                        <div id="after-file-list" class="file-list"></div>
                     </div>
 
-                    <div id="report-drop-zone" class="border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:border-blue-500 bg-gray-50 transition-colors">
-                        <p class="text-gray-500 pointer-events-none">Drag & drop service report here, or click to select</p>
-                        <input type="file" id="report-file-input" class="hidden" accept=".pdf,.doc,.docx,.txt,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain">
-                        <p id="report-file-name" class="text-sm font-medium mt-2 text-gray-700"></p>
+                    <div id="report-drop-zone" class="border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:border-blue-500 bg-gray-50">
+                        <p class="text-gray-500 pointer-events-none">Drag & drop service reports (PDF), or click to select</p>
+                        <input type="file" id="report-file-input" class="hidden" accept="application/pdf" multiple>
+                        <div id="report-file-list" class="file-list"></div>
                     </div>
                 </div>
                 <div class="mt-6 flex gap-4">
@@ -164,7 +167,7 @@
     <div id="share-link-modal" class="modal-backdrop hidden">
         <div class="modal-content text-center">
             <h2 class="text-2xl font-semibold mb-4">Shareable Customer Link</h2>
-            <p class="mb-4 text-gray-600">Share this private link with your customer so they can view their service history.</p>
+            <p class="mb-4 text-gray-600">Share this private link with your customer.</p>
             <input type="text" id="share-link-input" class="w-full p-2 border rounded-md bg-gray-100 text-center" readonly>
             <div class="mt-6 flex gap-4 justify-center">
                 <button id="copy-share-link-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg">Copy Link</button>
@@ -183,8 +186,7 @@
 
     <script>
         // --- CONFIGURATION ---
-        // IMPORTANT: Paste the Web App URL you get after deploying the Google Apps Script.
-        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbytZ7andADwKM7vLRc9hw0OZBIJYv5i4SK_XVUIgK4RkGkDR5tQO4G0B_fyosYqvrSz/exec'; // <-- PASTE YOUR WEB APP URL HERE
+        const WEB_APP_URL = 'YOUR_WEB_APP_URL'; // <-- PASTE YOUR NEW WEB APP URL HERE
 
         // --- STATE MANAGEMENT ---
         let state = {
@@ -193,7 +195,7 @@
             currentCustomerId: null,
             currentCustomer: null,
         };
-        let filesToUpload = { before: null, after: null, report: null };
+        let filesToUpload = { before: [], after: [], reports: [] };
         
         // --- UI ELEMENT REFERENCES ---
         const views = {
@@ -216,27 +218,15 @@
 
         // --- CORE FUNCTIONS ---
         
-        /**
-         * Shows/hides the loading spinner.
-         * @param {boolean} isLoading - Whether to show the spinner.
-         */
         function setLoading(isLoading) {
             views.loading.classList.toggle('hidden', !isLoading);
         }
 
-        /**
-         * Displays a custom alert message.
-         * @param {string} message - The message to display.
-         */
         function customAlert(message) {
             alertMessage.textContent = message;
             alertModal.classList.remove('hidden');
         }
 
-        /**
-         * Switches the main view of the application.
-         * @param {string} viewName - The name of the view to show ('dashboard', 'customer', 'public').
-         */
         function showView(viewName) {
             Object.values(views).forEach(view => view.classList.add('hidden'));
             if (views[viewName]) {
@@ -244,12 +234,6 @@
             }
         }
         
-        /**
-         * Fetches data from the backend Google Apps Script.
-         * @param {string} endpoint - The URL with query parameters for a GET request.
-         * @param {object} [options] - Optional fetch options for POST requests.
-         * @returns {Promise<any>} - The JSON data from the response.
-         */
         async function fetchApi(endpoint, options) {
             setLoading(true);
             try {
@@ -257,13 +241,9 @@
                     throw new Error("Web App URL is not configured. Please update the script.");
                 }
                 const response = await fetch(endpoint, options);
-                if (!response.ok) {
-                    throw new Error(`Network response was not ok: ${response.statusText}`);
-                }
+                if (!response.ok) throw new Error(`Network response was not ok: ${response.statusText}`);
                 const result = await response.json();
-                if (!result.success) {
-                    throw new Error(result.error || "An unknown error occurred in the backend.");
-                }
+                if (!result.success) throw new Error(result.error || "An unknown backend error occurred.");
                 return result.data;
             } catch (error) {
                 console.error("API Error:", error);
@@ -274,35 +254,30 @@
             }
         }
         
-        /**
-         * Handles routing based on URL parameters on page load.
-         */
         async function handleRouting() {
             const params = new URLSearchParams(window.location.search);
             const customerIdParam = params.get('customer');
             
-            // Always fetch customers first
-            state.customers = await fetchApi(`${WEB_APP_URL}?action=getCustomers`) || [];
-            
             if (customerIdParam) {
-                await loadPublicView(customerIdParam);
+                const data = await fetchApi(`${WEB_APP_URL}?action=getCustomerAndJobs&customerId=${customerIdParam}`);
+                if (data) {
+                    loadPublicView(data.customer, data.jobs);
+                } else {
+                    document.getElementById('public-view-name').textContent = "Customer Not Found";
+                    publicJobListEl.innerHTML = '';
+                    showView('public');
+                }
             } else {
+                state.customers = await fetchApi(`${WEB_APP_URL}?action=getCustomers`) || [];
                 loadDashboardView();
             }
         }
 
-        /**
-         * Loads and displays the main admin dashboard with the customer list.
-         */
         function loadDashboardView() {
             showView('dashboard');
             renderCustomerList(state.customers);
         }
 
-        /**
-         * Loads the view for a specific customer's jobs.
-         * @param {string} customerId - The ID of the customer to view.
-         */
         async function loadCustomerJobsView(customerId) {
             state.currentCustomerId = customerId;
             state.currentCustomer = state.customers.find(c => c.CustomerID === customerId);
@@ -318,21 +293,13 @@
             showView('customer');
         }
         
-        /**
-         * Loads the public, read-only view for a customer.
-         * @param {string} customerId - The ID of the customer for the public view.
-         */
-        async function loadPublicView(customerId) {
-            const customer = state.customers.find(c => c.CustomerID === customerId);
+        function loadPublicView(customer, jobs) {
             if (customer) {
                 document.getElementById('public-view-name').textContent = `Service History for ${customer.Name}`;
                 document.getElementById('public-view-customer').textContent = `Location: ${customer.Location}`;
-                
-                const customerJobs = await fetchApi(`${WEB_APP_URL}?action=getJobs&customerId=${customerId}`) || [];
-                renderJobList(customerJobs, true);
+                renderJobList(jobs, true);
             } else {
                 document.getElementById('public-view-name').textContent = "Customer Not Found";
-                publicJobListEl.innerHTML = '';
             }
             showView('public');
         }
@@ -345,7 +312,7 @@
                 customerListEl.innerHTML = `<p class="text-gray-500 col-span-full">No customers found. Click 'Add New Customer' to begin.</p>`;
                 return;
             }
-            customerData.forEach(customer => {
+            customerData.sort((a, b) => a.Name.localeCompare(b.Name)).forEach(customer => {
                 const card = document.createElement('div');
                 card.className = 'bg-white p-6 rounded-lg shadow-md hover:shadow-xl transition-shadow';
                 card.innerHTML = `
@@ -365,7 +332,7 @@
             const targetEl = isPublic ? publicJobListEl : jobListEl;
             targetEl.innerHTML = '';
             if (!jobData || jobData.length === 0) {
-                targetEl.innerHTML = `<div class="bg-white p-6 rounded-lg shadow-md text-center"><p class="text-gray-500">No job reports have been added for this customer yet.</p></div>`;
+                targetEl.innerHTML = `<div class="bg-white p-6 rounded-lg shadow-md text-center"><p class="text-gray-500">No job reports have been added yet.</p></div>`;
                 return;
             }
 
@@ -374,23 +341,31 @@
                 card.className = 'bg-white p-6 rounded-lg shadow-md';
                 const jobDate = new Date(job.Date + 'T00:00:00');
                 const formattedDate = isNaN(jobDate) ? 'Invalid Date' : jobDate.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+                
+                const beforeImagesHTML = (job.BeforeShotURLs || []).map(url => `<img src="${url}" class="w-full h-auto rounded-lg shadow-sm mb-2" onerror="this.style.display='none'">`).join('');
+                const afterImagesHTML = (job.AfterShotURLs || []).map(url => `<img src="${url}" class="w-full h-auto rounded-lg shadow-sm mb-2" onerror="this.style.display='none'">`).join('');
+                const reportsHTML = (job.ServiceReportURLs || []).map((url, i) => `<a href="${url}" target="_blank" rel="noopener noreferrer" class="inline-block bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg mr-2 mb-2">View Report ${i+1}</a>`).join('');
+
                 card.innerHTML = `
                     <div class="border-b pb-4 mb-4">
                         <h3 class="text-xl font-bold">${formattedDate}</h3>
                         <p class="text-gray-600 font-medium">${job.Scope}</p>
                     </div>
                     <p class="mb-4"><strong class="font-semibold">Completion Notes:</strong> ${job.CompletionNotes || 'N/A'}</p>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
                         <div>
                             <h4 class="font-semibold mb-2 text-center">Before</h4>
-                            <img src="${job.BeforeShotURL || 'https://placehold.co/600x400/e2e8f0/94a3b8?text=No+Image'}" alt="Before shot for ${job.Scope}" class="w-full h-auto rounded-lg shadow-sm" onerror="this.onerror=null;this.src='https://placehold.co/600x400/e2e8f0/94a3b8?text=Image+Error';">
+                            ${beforeImagesHTML || '<p class="text-center text-gray-500">No images</p>'}
                         </div>
                         <div>
                             <h4 class="font-semibold mb-2 text-center">After</h4>
-                            <img src="${job.AfterShotURL || 'https://placehold.co/600x400/e2e8f0/94a3b8?text=No+Image'}" alt="After shot for ${job.Scope}" class="w-full h-auto rounded-lg shadow-sm" onerror="this.onerror=null;this.src='https://placehold.co/600x400/e2e8f0/94a3b8?text=Image+Error';">
+                            ${afterImagesHTML || '<p class="text-center text-gray-500">No images</p>'}
                         </div>
                     </div>
-                    ${job.ServiceReportURL ? `<a href="${job.ServiceReportURL}" target="_blank" rel="noopener noreferrer" class="inline-block bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg">View Service Report</a>` : ''}
+                    <div>
+                        <h4 class="font-semibold mb-2">Service Reports</h4>
+                        ${reportsHTML || '<p class="text-gray-500">No reports</p>'}
+                    </div>
                 `;
                 targetEl.appendChild(card);
             });
@@ -403,42 +378,44 @@
             const fileInput = document.getElementById(inputId);
             
             dropZone.addEventListener('click', () => fileInput.click());
-            fileInput.addEventListener('change', (e) => handleFileSelect(e.target.files[0], type));
+            fileInput.addEventListener('change', (e) => handleFileSelect(e.target.files, type));
 
             ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => dropZone.addEventListener(eventName, e => e.preventDefault()));
             ['dragenter', 'dragover'].forEach(eventName => dropZone.addEventListener(eventName, () => dropZone.classList.add('drop-zone-active')));
             ['dragleave', 'drop'].forEach(eventName => dropZone.addEventListener(eventName, () => dropZone.classList.remove('drop-zone-active')));
             
-            dropZone.addEventListener('drop', (e) => {
-                const file = e.dataTransfer.files[0];
-                handleFileSelect(file, type);
-            });
+            dropZone.addEventListener('drop', (e) => handleFileSelect(e.dataTransfer.files, type));
         }
 
-        function handleFileSelect(file, type) {
-            if (!file) return;
+        function handleFileSelect(files, type) {
+            if (!files || files.length === 0) return;
             
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                filesToUpload[type] = {
-                    name: file.name,
-                    mimeType: file.type,
-                    base64: e.target.result.split(',')[1] // Get base64 part
+            filesToUpload[type] = []; // Reset for new selection
+            const fileListEl = document.getElementById(`${type}-file-list`);
+            fileListEl.innerHTML = '';
+
+            Array.from(files).forEach(file => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    filesToUpload[type].push({
+                        name: file.name,
+                        mimeType: file.type,
+                        base64: e.target.result.split(',')[1]
+                    });
+                    const li = document.createElement('div');
+                    li.textContent = file.name;
+                    li.className = 'file-list-item';
+                    fileListEl.appendChild(li);
                 };
-                 document.getElementById(`${type}-file-name`).textContent = file.name;
-            };
-            reader.onerror = (error) => {
-                console.error("File reading error:", error);
-                customAlert("Error reading file.");
-            }
-            reader.readAsDataURL(file);
+                reader.readAsDataURL(file);
+            });
         }
 
         function resetAddJobForm() {
             addJobForm.reset();
-            filesToUpload = { before: null, after: null, report: null };
-            ['before', 'after', 'report'].forEach(type => {
-                document.getElementById(`${type}-file-name`).textContent = '';
+            filesToUpload = { before: [], after: [], reports: [] };
+            ['before', 'after', 'reports'].forEach(type => {
+                document.getElementById(`${type}-file-list`).innerHTML = '';
             });
             addJobModal.classList.add('hidden');
         }
@@ -462,11 +439,7 @@
                 location: document.getElementById('customer-location').value.trim(),
                 frequency: document.getElementById('service-frequency').value.trim()
             };
-            const options = {
-                method: 'POST',
-                body: JSON.stringify({ action: 'addCustomer', payload: payload })
-            };
-            const newCustomer = await fetchApi(WEB_APP_URL, options);
+            const newCustomer = await fetchApi(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'addCustomer', payload }) });
             if (newCustomer) {
                 state.customers.push(newCustomer);
                 addCustomerForm.reset();
@@ -480,9 +453,7 @@
             const target = e.target.closest('button');
             if (!target) return;
             
-            if (target.classList.contains('view-jobs-btn')) {
-                loadCustomerJobsView(target.dataset.id);
-            }
+            if (target.classList.contains('view-jobs-btn')) loadCustomerJobsView(target.dataset.id);
             if (target.classList.contains('share-link-btn')) {
                 const shareUrl = `${window.location.href.split('?')[0]}?customer=${target.dataset.id}`;
                 shareLinkInput.value = shareUrl;
@@ -494,7 +465,7 @@
             state.currentCustomerId = null;
             state.currentCustomer = null;
             window.history.pushState({}, '', window.location.pathname);
-            loadDashboardView();
+            handleRouting();
         });
 
         document.getElementById('show-add-job-form-btn').addEventListener('click', () => addJobModal.classList.remove('hidden'));
@@ -502,30 +473,21 @@
 
         addJobForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            if (!state.currentCustomerId) {
-                customAlert("No customer selected.");
-                return;
-            }
+            if (!state.currentCustomerId) return customAlert("No customer selected.");
+            if (filesToUpload.reports.length === 0) return customAlert("At least one service report (PDF) is required.");
 
             const payload = {
-                customerId: state.currentCustomerId,
+                customerId: state.currentCustomer.CustomerID,
+                customerName: state.currentCustomer.Name,
                 date: document.getElementById('job-date').value,
                 scope: document.getElementById('job-scope').value.trim(),
                 notes: document.getElementById('job-notes').value.trim(),
                 files: filesToUpload
             };
             
-            const options = {
-                method: 'POST',
-                body: JSON.stringify({ action: 'addJob', payload: payload })
-            };
-            
-            const newJob = await fetchApi(WEB_APP_URL, options);
+            const newJob = await fetchApi(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'addJob', payload }) });
 
             if (newJob) {
-                if (!state.jobs[state.currentCustomerId]) {
-                    state.jobs[state.currentCustomerId] = [];
-                }
                 state.jobs[state.currentCustomerId].unshift(newJob);
                 resetAddJobForm();
                 renderJobList(state.jobs[state.currentCustomerId]);
@@ -537,21 +499,17 @@
         document.getElementById('copy-share-link-btn').addEventListener('click', () => {
             shareLinkInput.select();
             try {
-                if (navigator.clipboard) {
-                    navigator.clipboard.writeText(shareLinkInput.value).then(() => customAlert('Link copied to clipboard!'));
-                } else {
-                    document.execCommand('copy');
-                    customAlert('Link copied to clipboard!');
-                }
+                navigator.clipboard.writeText(shareLinkInput.value).then(() => customAlert('Link copied!'));
             } catch (err) {
-                customAlert('Failed to copy link. Please copy it manually.');
+                document.execCommand('copy');
+                customAlert('Link copied!');
             }
         });
 
         // Initialize drop zones
         setupDropZone('before-drop-zone', 'before-file-input', 'before');
         setupDropZone('after-drop-zone', 'after-file-input', 'after');
-        setupDropZone('report-drop-zone', 'report-file-input', 'report');
+        setupDropZone('report-drop-zone', 'report-file-input', 'reports');
 
     </script>
 </body>
