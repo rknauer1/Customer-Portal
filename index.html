@@ -180,7 +180,7 @@
         async function fetchApi(endpoint, options) {
             setLoading(true);
             try {
-                if (WEB_APP_URL === 'https://script.google.com/macros/s/AKfycbytZ7andADwKM7vLRc9hw0OZBIJYv5i4SK_XVUIgK4RkGkDR5tQO4G0B_fyosYqvrSz/exec') throw new Error("Web App URL is not configured.");
+                if (WEB_APP_URL === 'YOUR_WEB_APP_URL') throw new Error("Web App URL is not configured.");
                 // Add cache-busting parameter to GET requests
                 const url = options && options.method === 'POST' ? endpoint : `${endpoint}&v=${new Date().getTime()}`;
                 const response = await fetch(url, options);
