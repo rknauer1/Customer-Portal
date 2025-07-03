@@ -26,10 +26,6 @@
         .drop-zone:hover, .drop-zone-active {
             border-color: #3b82f6; background-color: #eff6ff;
         }
-        .drop-zone.disabled {
-            cursor: not-allowed; background-color: #e5e7eb; border-color: #d1d5db;
-        }
-        .drop-zone.disabled p { color: #6b7280; }
         #alert-modal { z-index: 200; }
         .spinner {
             border-top-color: #3498db; animation: spin 1s linear infinite;
@@ -108,7 +104,8 @@
                     <textarea id="job-notes" placeholder="Completion Notes" class="w-full p-2 border rounded-md" rows="3"></textarea>
                     
                     <div id="file-upload-section">
-                        <div id="before-drop-zone" class="drop-zone">
+                        <h3 id="file-upload-title" class="font-semibold text-lg mt-4">File Attachments</h3>
+                        <div id="before-drop-zone" class="drop-zone mt-2">
                             <p>Drag & drop 'Before' photos, or click</p>
                             <input type="file" id="before-file-input" class="hidden" accept="image/*" multiple>
                             <div id="before-file-list" class="file-list"></div>
@@ -120,12 +117,9 @@
                         </div>
                         <div id="report-drop-zone" class="drop-zone mt-4">
                             <p>Drag & drop service reports, or click</p>
-                            <input type="file" id="report-file-input" class="hidden" accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple>
+                            <input type="file" id="report-file-input" class="hidden" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple>
                             <div id="report-file-list" class="file-list"></div>
                         </div>
-                    </div>
-                     <div id="edit-mode-notice" class="hidden text-sm text-center bg-yellow-100 p-2 rounded-md">
-                        File uploads cannot be changed when editing a job.
                     </div>
                 </div>
                 <div class="mt-6 flex gap-4">
@@ -181,7 +175,6 @@
             setLoading(true);
             try {
                 if (WEB_APP_URL === 'YOUR_WEB_APP_URL') throw new Error("Web App URL is not configured.");
-                // Add cache-busting parameter to GET requests
                 const url = options && options.method === 'POST' ? endpoint : `${endpoint}&v=${new Date().getTime()}`;
                 const response = await fetch(url, options);
                 if (!response.ok) throw new Error(`Network error: ${response.statusText}`);
@@ -276,7 +269,7 @@
                 const jobDate = new Date(job.Date);
                 const formattedDate = isNaN(jobDate) ? 'Invalid Date' : new Date(jobDate.getTime() + jobDate.getTimezoneOffset() * 60000).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
                 
-                const createGallery = (urls) => (urls || []).map(url => `<a href="${url}" target="_blank"><img src="${url}" class="w-full h-auto rounded-lg shadow-sm mb-2" onerror="this.style.display='none'"></a>`).join('') || '<p class="text-center text-gray-500">None</p>';
+                const createGallery = (urls) => (urls || []).map(url => `<a href="${url}" target="_blank" rel="noopener noreferrer"><img src="${url.replace('/view?usp=sharing', '/preview')}" class="w-full h-auto rounded-lg shadow-sm mb-2" onerror="this.style.display='none'"></a>`).join('') || '<p class="text-center text-gray-500">None</p>';
                 const reportsHTML = (job.ServiceReportURLs || []).map((url, i) => `<a href="${url}" target="_blank" rel="noopener noreferrer" class="inline-block bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg mr-2 mb-2">View Report ${i+1}</a>`).join('') || '<p class="text-gray-500">None</p>';
 
                 card.innerHTML = `
@@ -303,24 +296,18 @@
             const dropZone = document.getElementById(zoneId);
             const fileInput = document.getElementById(inputId);
             
-            dropZone.addEventListener('click', () => {
-                if (!dropZone.classList.contains('disabled')) fileInput.click();
-            });
+            dropZone.addEventListener('click', () => fileInput.click());
             fileInput.addEventListener('change', (e) => handleFileSelect(e.target.files, type));
 
             ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => dropZone.addEventListener(eventName, e => e.preventDefault()));
-            ['dragenter', 'dragover'].forEach(eventName => dropZone.addEventListener(eventName, () => {
-                if (!dropZone.classList.contains('disabled')) dropZone.classList.add('drop-zone-active');
-            }));
+            ['dragenter', 'dragover'].forEach(eventName => dropZone.addEventListener(eventName, () => dropZone.classList.add('drop-zone-active')));
             ['dragleave', 'drop'].forEach(eventName => dropZone.addEventListener(eventName, () => dropZone.classList.remove('drop-zone-active')));
-            dropZone.addEventListener('drop', (e) => {
-                if (!dropZone.classList.contains('disabled')) handleFileSelect(e.dataTransfer.files, type);
-            });
+            dropZone.addEventListener('drop', (e) => handleFileSelect(e.dataTransfer.files, type));
         }
 
         function handleFileSelect(files, type) {
             if (!files || files.length === 0) return;
-            filesToUpload[type] = [];
+            filesToUpload[type] = []; // Reset for new selection
             const fileListEl = document.getElementById(`${type}-file-list`);
             fileListEl.innerHTML = '';
 
@@ -334,29 +321,25 @@
             });
         }
 
-        function resetAddJobForm(mode = 'add') {
+        function setupJobModal(mode = 'add', jobData = null) {
             addJobForm.reset();
-            document.getElementById('job-id-edit').value = '';
+            document.getElementById('job-id-edit').value = jobData ? jobData.JobID : '';
             filesToUpload = { before: [], after: [], reports: [] };
             ['before', 'after', 'report'].forEach(type => document.getElementById(`${type}-file-list`).innerHTML = '');
             
-            const fileSection = document.getElementById('file-upload-section');
-            const editNotice = document.getElementById('edit-mode-notice');
-            const dropZones = document.querySelectorAll('.drop-zone');
-
             if (mode === 'add') {
                 document.getElementById('job-modal-title').textContent = 'Add New Job Report';
+                document.getElementById('file-upload-title').textContent = 'File Attachments';
                 document.getElementById('save-job-btn').textContent = 'Save Job';
-                fileSection.classList.remove('hidden');
-                editNotice.classList.add('hidden');
-                dropZones.forEach(dz => dz.classList.remove('disabled'));
             } else { // 'edit' mode
                 document.getElementById('job-modal-title').textContent = 'Edit Job Report';
+                document.getElementById('file-upload-title').textContent = 'Add More Files';
                 document.getElementById('save-job-btn').textContent = 'Update Job';
-                fileSection.classList.add('hidden');
-                editNotice.classList.remove('hidden');
+                document.getElementById('job-date').value = jobData.Date;
+                document.getElementById('job-scope').value = jobData.Scope;
+                document.getElementById('job-notes').value = jobData.CompletionNotes;
             }
-            addJobModal.classList.add('hidden');
+            addJobModal.classList.remove('hidden');
         }
 
         // --- EVENT LISTENERS ---
@@ -372,7 +355,7 @@
                         <input type="text" id="service-frequency" placeholder="Service Frequency" class="p-2 border rounded-md" required>
                     </div>
                     <div class="mt-4 flex gap-4">
-                        <button type="submit" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg">Save Customer</button>
+                        <button type="submit" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg">Save</button>
                         <button type="button" id="cancel-add-customer-btn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg">Cancel</button>
                     </div>
                 </form>`;
@@ -416,14 +399,7 @@
             if (!btn) return;
             const jobId = btn.dataset.jobId;
             const jobData = state.jobs[state.currentCustomerId].find(j => j.JobID === jobId);
-            if (jobData) {
-                resetAddJobForm('edit');
-                document.getElementById('job-id-edit').value = jobData.JobID;
-                document.getElementById('job-date').value = jobData.Date;
-                document.getElementById('job-scope').value = jobData.Scope;
-                document.getElementById('job-notes').value = jobData.CompletionNotes;
-                addJobModal.classList.remove('hidden');
-            }
+if (jobData) setupJobModal('edit', jobData);
         });
 
         document.getElementById('back-to-dashboard-btn').addEventListener('click', () => {
@@ -431,30 +407,41 @@
             handleRouting();
         });
 
-        document.getElementById('show-add-job-form-btn').addEventListener('click', () => {
-             resetAddJobForm('add');
-             addJobModal.classList.remove('hidden');
-        });
-        document.getElementById('cancel-add-job-btn').addEventListener('click', () => resetAddJobForm('add'));
+        document.getElementById('show-add-job-form-btn').addEventListener('click', () => setupJobModal('add'));
+        document.getElementById('cancel-add-job-btn').addEventListener('click', () => addJobModal.classList.add('hidden'));
 
         addJobForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const editJobId = document.getElementById('job-id-edit').value;
             
-            if (editJobId) { // This is an UPDATE
+            if (editJobId) { // UPDATE existing job
                 const payload = {
                     jobId: editJobId,
                     date: document.getElementById('job-date').value,
                     scope: document.getElementById('job-scope').value.trim(),
                     notes: document.getElementById('job-notes').value.trim(),
                 };
-                const updatedJob = await fetchApi(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'updateJob', payload }) });
-                if (updatedJob) {
-                    await loadCustomerJobsView(state.currentCustomerId);
-                    resetAddJobForm('add');
-                    customAlert('Job updated successfully!');
+                const updateResult = await fetchApi(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'updateJob', payload }) });
+                
+                const hasFiles = filesToUpload.before.length > 0 || filesToUpload.after.length > 0 || filesToUpload.reports.length > 0;
+                if (hasFiles) {
+                    const filePayload = {
+                        jobId: editJobId,
+                        customerName: state.currentCustomer.Name,
+                        date: payload.date,
+                        scope: payload.scope,
+                        files: filesToUpload
+                    };
+                    await fetchApi(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'addFilesToJob', payload: filePayload }) });
                 }
-            } else { // This is a NEW job
+
+                if (updateResult) {
+                    addJobModal.classList.add('hidden');
+                    customAlert('Job updated successfully!');
+                    await loadCustomerJobsView(state.currentCustomerId); // Reload to show all changes
+                }
+
+            } else { // ADD new job
                 const payload = {
                     customerId: state.currentCustomer.CustomerID,
                     customerName: state.currentCustomer.Name,
@@ -465,10 +452,10 @@
                 };
                 const newJob = await fetchApi(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'addJob', payload }) });
                 if (newJob) {
-                    state.jobs[state.currentCustomerId].unshift(newJob);
-                    resetAddJobForm('add');
-                    renderJobList(state.jobs[state.currentCustomerId]);
+                    addJobModal.classList.add('hidden');
                     customAlert('Job added successfully!');
+                    state.jobs[state.currentCustomerId].unshift(newJob);
+                    renderJobList(state.jobs[state.currentCustomerId]);
                 }
             }
         });
@@ -476,7 +463,7 @@
         // Initialize drop zones
         setupDropZone('before-drop-zone', 'before-file-input', 'before');
         setupDropZone('after-drop-zone', 'after-file-input', 'after');
-        setupDropZone('report-drop-zone', 'report-file-input', 'reports');
+        setupDropZone('report-drop-zone', 'report-file-input', 'reports'); // Corrected from 'report' to 'reports'
 
     </script>
 </body>
