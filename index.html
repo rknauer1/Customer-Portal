@@ -26,7 +26,6 @@
         .drop-zone:hover, .drop-zone-active {
             border-color: #3b82f6; background-color: #eff6ff;
         }
-        #alert-modal, #confirm-modal { z-index: 200; }
         .spinner { border-top-color: #3498db; animation: spin 1s linear infinite; }
         .spinner-inline {
             display: inline-block;
@@ -56,10 +55,8 @@
         <div class="spinner rounded-full h-32 w-32 border-8 border-gray-200"></div>
     </div>
 
-    <!-- Views Container -->
+    <!-- Views & Modals are rendered here by JavaScript -->
     <div id="app-container"></div>
-
-    <!-- Modals -->
     <div id="modal-container"></div>
 
     <script>
@@ -109,6 +106,7 @@
             }
         }
 
+        // --- VIEW RENDERING ---
         function renderDashboardView() {
             const html = `
                 <div id="dashboard-view">
@@ -165,7 +163,7 @@
             appContainer.innerHTML = html;
         }
 
-        // --- RENDERING & TEMPLATES ---
+        // --- COMPONENT RENDERING ---
         function renderCustomerList(customerData) {
             if (!customerData || customerData.length === 0) return `<p class="text-gray-500 col-span-full">No customers found.</p>`;
             return customerData.sort((a, b) => a.Name.localeCompare(b.Name)).map(customer => `
@@ -263,12 +261,16 @@
             }
             modalContainer.innerHTML = html;
             
-            // Attach generic close listeners
-            modalContainer.querySelectorAll('.modal-close, .modal-ok, .modal-cancel').forEach(btn => {
-                btn.addEventListener('click', () => modalContainer.innerHTML = '');
-            });
-
-            // Attach specific listeners
+            // Attach listeners
+            const modalBackdrop = modalContainer.querySelector('.modal-backdrop');
+            if (modalBackdrop) {
+                modalBackdrop.addEventListener('click', (e) => {
+                    if (e.target === modalBackdrop || e.target.classList.contains('modal-close')) {
+                        modalContainer.innerHTML = '';
+                    }
+                });
+            }
+            
             if (type === 'confirm') {
                 modalContainer.querySelector('.modal-confirm').addEventListener('click', () => {
                     modalContainer.innerHTML = '';
@@ -283,7 +285,6 @@
             }
             if (type === 'job') {
                 filesToUpload = { before: [], after: [], reports: [] };
-                modalContainer.querySelector('#add-job-form').addEventListener('submit', handleJobFormSubmit);
                 setupDropZone('before-drop-zone', 'before-file-input', 'before');
                 setupDropZone('after-drop-zone', 'after-file-input', 'after');
                 setupDropZone('report-drop-zone', 'report-file-input', 'reports');
@@ -411,19 +412,20 @@
         
         async function handleJobFormSubmit(e) {
             e.preventDefault();
-            const submitBtn = e.target.querySelector('button[type="submit"]');
+            const form = e.target;
+            const submitBtn = form.querySelector('button[type="submit"]');
             submitBtn.disabled = true;
             submitBtn.innerHTML = `<span class="spinner-inline"></span> Saving...`;
 
-            const editJobId = document.getElementById('job-id-edit').value;
+            const editJobId = form.querySelector('#job-id-edit').value;
             
             try {
                 if (editJobId) { // UPDATE
                     const payload = {
                         jobId: editJobId,
-                        date: document.getElementById('job-date').value,
-                        scope: document.getElementById('job-scope').value.trim(),
-                        notes: document.getElementById('job-notes').value.trim(),
+                        date: form.querySelector('#job-date').value,
+                        scope: form.querySelector('#job-scope').value.trim(),
+                        notes: form.querySelector('#job-notes').value.trim(),
                     };
                     await fetchApi(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'updateJob', payload }) });
                     
@@ -437,9 +439,9 @@
                     const payload = {
                         customerId: state.currentCustomer.CustomerID,
                         customerName: state.currentCustomer.Name,
-                        date: document.getElementById('job-date').value,
-                        scope: document.getElementById('job-scope').value.trim(),
-                        notes: document.getElementById('job-notes').value.trim(),
+                        date: form.querySelector('#job-date').value,
+                        scope: form.querySelector('#job-scope').value.trim(),
+                        notes: form.querySelector('#job-notes').value.trim(),
                         files: filesToUpload
                     };
                     await fetchApi(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'addJob', payload }) });
@@ -448,8 +450,8 @@
                 modalContainer.innerHTML = '';
                 await renderCustomerJobsView(state.currentCustomerId);
             } finally {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = editJobId ? 'Update Job' : 'Save Job';
+                // This block will run even if errors occur in the try block
+                // No need to re-enable the button here as the modal will be gone
             }
         }
         
