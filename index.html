@@ -28,6 +28,15 @@
         }
         #alert-modal, #confirm-modal { z-index: 200; }
         .spinner { border-top-color: #3498db; animation: spin 1s linear infinite; }
+        .spinner-inline {
+            display: inline-block;
+            width: 1rem; height: 1rem;
+            border: 2px solid currentColor;
+            border-right-color: transparent;
+            border-radius: 50%;
+            animation: spin .75s linear infinite;
+            margin-right: 0.5rem;
+        }
         @keyframes spin { to { transform: rotate(360deg); } }
         .file-list-item {
             background-color: #f3f4f6; padding: 0.25rem 0.5rem;
@@ -47,45 +56,11 @@
         <div class="spinner rounded-full h-32 w-32 border-8 border-gray-200"></div>
     </div>
 
-    <!-- Views -->
-    <div id="dashboard-view">
-        <div class="container mx-auto p-4 md:p-8">
-            <header class="mb-8"><h1 class="text-3xl font-bold">Customer Dashboard</h1></header>
-            <button id="show-add-customer-form-btn" class="mb-6 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md">+ Add New Customer</button>
-            <div id="add-customer-form-container" class="hidden bg-white p-6 rounded-lg shadow-md mb-8"></div>
-            <div id="customer-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
-        </div>
-    </div>
-
-    <div id="customer-view" class="hidden">
-        <div class="container mx-auto p-4 md:p-8">
-            <header class="mb-8 flex justify-between items-center">
-                <div>
-                    <h1 id="customer-view-name" class="text-3xl font-bold"></h1>
-                    <p id="customer-view-info" class="text-gray-600 mt-1"></p>
-                </div>
-                <button id="back-to-dashboard-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg">&larr; Back</button>
-            </header>
-            <button id="show-add-job-form-btn" class="mb-6 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md">+ Add New Job Report</button>
-            <div id="job-list" class="space-y-8"></div>
-        </div>
-    </div>
-    
-    <div id="public-view" class="hidden">
-        <div class="container mx-auto p-4 md:p-8">
-             <header class="mb-8 text-center border-b pb-4">
-                <h1 id="public-view-name" class="text-3xl font-bold">Service History</h1>
-                <p id="public-view-customer" class="text-gray-600 mt-1"></p>
-            </header>
-            <div id="public-job-list" class="space-y-8"></div>
-        </div>
-    </div>
+    <!-- Views Container -->
+    <div id="app-container"></div>
 
     <!-- Modals -->
-    <div id="add-job-modal" class="modal-backdrop hidden"></div>
-    <div id="share-link-modal" class="modal-backdrop hidden"></div>
-    <div id="alert-modal" class="modal-backdrop hidden"></div>
-    <div id="confirm-modal" class="modal-backdrop hidden"></div>
+    <div id="modal-container"></div>
 
     <script>
         // --- CONFIGURATION ---
@@ -96,25 +71,12 @@
         let filesToUpload = { before: [], after: [], reports: [] };
         
         // --- UI ELEMENT REFERENCES ---
-        const views = {
-            dashboard: document.getElementById('dashboard-view'), customer: document.getElementById('customer-view'),
-            public: document.getElementById('public-view'), loading: document.getElementById('loading-spinner')
-        };
-        const customerListEl = document.getElementById('customer-list');
-        const jobListEl = document.getElementById('job-list');
-        const publicJobListEl = document.getElementById('public-job-list');
-        const addCustomerFormContainer = document.getElementById('add-customer-form-container');
-        const addJobModalEl = document.getElementById('add-job-modal');
-        const shareLinkModalEl = document.getElementById('share-link-modal');
-        const alertModalEl = document.getElementById('alert-modal');
-        const confirmModalEl = document.getElementById('confirm-modal');
+        const appContainer = document.getElementById('app-container');
+        const modalContainer = document.getElementById('modal-container');
+        const loadingSpinner = document.getElementById('loading-spinner');
 
         // --- CORE FUNCTIONS ---
-        function setLoading(isLoading) { views.loading.classList.toggle('hidden', !isLoading); }
-        function showView(viewName) {
-            Object.values(views).forEach(view => view.classList.add('hidden'));
-            if (views[viewName]) views[viewName].classList.remove('hidden');
-        }
+        function setLoading(isLoading) { loadingSpinner.classList.toggle('hidden', !isLoading); }
         
         async function fetchApi(endpoint, options) {
             setLoading(true);
@@ -127,7 +89,7 @@
                 return result.data;
             } catch (error) {
                 console.error("API Error:", error);
-                showModal('alert', { message: `Error: ${error.message}` });
+                renderModal('alert', { message: `Error: ${error.message}` });
                 return null;
             } finally {
                 setLoading(false);
@@ -140,78 +102,93 @@
             
             if (customerIdParam) {
                 const data = await fetchApi(`${WEB_APP_URL}?action=getCustomerAndJobs&customerId=${customerIdParam}`);
-                if (data) loadPublicView(data.customer, data.jobs);
+                if (data) renderPublicView(data.customer, data.jobs);
             } else {
                 state.customers = await fetchApi(`${WEB_APP_URL}?action=getCustomers`) || [];
-                loadDashboardView();
+                renderDashboardView();
             }
         }
 
-        function loadDashboardView() {
-            showView('dashboard');
-            renderCustomerList(state.customers);
+        function renderDashboardView() {
+            const html = `
+                <div id="dashboard-view">
+                    <div class="container mx-auto p-4 md:p-8">
+                        <header class="mb-8"><h1 class="text-3xl font-bold">Customer Dashboard</h1></header>
+                        <button id="show-add-customer-form-btn" class="mb-6 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md">+ Add New Customer</button>
+                        <div id="add-customer-form-container" class="hidden bg-white p-6 rounded-lg shadow-md mb-8"></div>
+                        <div id="customer-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            ${renderCustomerList(state.customers)}
+                        </div>
+                    </div>
+                </div>`;
+            appContainer.innerHTML = html;
         }
 
-        async function loadCustomerJobsView(customerId) {
+        async function renderCustomerJobsView(customerId) {
             state.currentCustomerId = customerId;
             state.currentCustomer = state.customers.find(c => c.CustomerID === customerId);
-            if (state.currentCustomer) {
-                document.getElementById('customer-view-name').textContent = state.currentCustomer.Name;
-                document.getElementById('customer-view-info').textContent = `${state.currentCustomer.Location} - ${state.currentCustomer.Frequency}`;
-            }
+            
+            const html = `
+                <div id="customer-view">
+                    <div class="container mx-auto p-4 md:p-8">
+                        <header class="mb-8 flex justify-between items-center">
+                            <div>
+                                <h1 class="text-3xl font-bold">${state.currentCustomer?.Name || ''}</h1>
+                                <p class="text-gray-600 mt-1">${state.currentCustomer?.Location || ''} - ${state.currentCustomer?.Frequency || ''}</p>
+                            </div>
+                            <button id="back-to-dashboard-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg">&larr; Back</button>
+                        </header>
+                        <button id="show-add-job-form-btn" class="mb-6 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md">+ Add New Job Report</button>
+                        <div id="job-list" class="space-y-8"></div>
+                    </div>
+                </div>`;
+            appContainer.innerHTML = html;
+            
             const customerJobs = await fetchApi(`${WEB_APP_URL}?action=getJobs&customerId=${customerId}`) || [];
             state.jobs[customerId] = customerJobs;
-            renderJobList(customerJobs);
-            showView('customer');
+            document.getElementById('job-list').innerHTML = renderJobList(customerJobs);
         }
         
-        function loadPublicView(customer, jobs) {
-            if (customer) {
-                document.getElementById('public-view-name').textContent = `Service History for ${customer.Name}`;
-                document.getElementById('public-view-customer').textContent = `Location: ${customer.Location}`;
-                renderJobList(jobs, true);
-            }
-            showView('public');
+        function renderPublicView(customer, jobs) {
+            const html = `
+                <div id="public-view">
+                    <div class="container mx-auto p-4 md:p-8">
+                         <header class="mb-8 text-center border-b pb-4">
+                            <h1 class="text-3xl font-bold">Service History for ${customer?.Name || 'Customer'}</h1>
+                            <p class="text-gray-600 mt-1">${customer?.Location || ''}</p>
+                        </header>
+                        <div id="public-job-list" class="space-y-8">
+                            ${renderJobList(jobs, true)}
+                        </div>
+                    </div>
+                </div>`;
+            appContainer.innerHTML = html;
         }
 
         // --- RENDERING & TEMPLATES ---
         function renderCustomerList(customerData) {
-            customerListEl.innerHTML = '';
-            if (!customerData || customerData.length === 0) {
-                customerListEl.innerHTML = `<p class="text-gray-500 col-span-full">No customers found.</p>`;
-                return;
-            }
-            customerData.sort((a, b) => a.Name.localeCompare(b.Name)).forEach(customer => {
-                const card = document.createElement('div');
-                card.className = 'bg-white p-6 rounded-lg shadow-md hover:shadow-xl transition-shadow';
-                card.innerHTML = `
+            if (!customerData || customerData.length === 0) return `<p class="text-gray-500 col-span-full">No customers found.</p>`;
+            return customerData.sort((a, b) => a.Name.localeCompare(b.Name)).map(customer => `
+                <div class="bg-white p-6 rounded-lg shadow-md hover:shadow-xl transition-shadow">
                     <h3 class="text-xl font-bold">${customer.Name}</h3>
                     <p class="text-gray-600">${customer.Location}</p>
                     <p class="text-sm text-gray-500 mt-1">Frequency: ${customer.Frequency}</p>
                     <div class="mt-4 flex flex-wrap gap-2">
                         <button data-id="${customer.CustomerID}" class="view-jobs-btn flex-grow bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-3 rounded-md text-sm">View Jobs</button>
                         <button data-id="${customer.CustomerID}" class="share-link-btn flex-grow bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-2 px-3 rounded-md text-sm">Get Share Link</button>
-                    </div>`;
-                customerListEl.appendChild(card);
-            });
+                    </div>
+                </div>`).join('');
         }
 
         function renderJobList(jobData, isPublic = false) {
-            const targetEl = isPublic ? publicJobListEl : jobListEl;
-            targetEl.innerHTML = '';
-            if (!jobData || jobData.length === 0) {
-                targetEl.innerHTML = `<div class="bg-white p-6 rounded-lg shadow-md text-center"><p class="text-gray-500">No job reports have been added yet.</p></div>`;
-                return;
-            }
-            jobData.forEach(job => {
-                const card = document.createElement('div');
-                card.className = 'bg-white p-6 rounded-lg shadow-md';
+            if (!jobData || jobData.length === 0) return `<div class="bg-white p-6 rounded-lg shadow-md text-center"><p class="text-gray-500">No job reports have been added yet.</p></div>`;
+            return jobData.map(job => {
                 const jobDate = new Date(job.Date);
                 const formattedDate = isNaN(jobDate) ? 'Invalid Date' : new Date(jobDate.getTime() + jobDate.getTimezoneOffset() * 60000).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
                 
                 const createGallery = (urls, fileType) => (urls || []).map(url => `
                     <div class="relative group">
-                        <a href="${url}" target="_blank" rel="noopener noreferrer"><img src="${url.replace('/view?usp=sharing', '/preview')}" class="w-full h-auto rounded-lg shadow-sm mb-2" onerror="this.style.display='none'"></a>
+                        <a href="${url}" target="_blank" rel="noopener noreferrer"><img src="${url.replace('/preview', '/thumbnail')}" class="w-full h-auto rounded-lg shadow-sm mb-2" onerror="this.style.display='none'"></a>
                         ${!isPublic ? `<button data-job-id="${job.JobID}" data-file-url="${url}" data-file-type="${fileType}" class="delete-file-btn absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">&times;</button>` : ''}
                     </div>`).join('') || '<p class="text-center text-gray-500">None</p>';
                 
@@ -221,66 +198,103 @@
                         ${!isPublic ? `<button data-job-id="${job.JobID}" data-file-url="${url}" data-file-type="ServiceReportURLs" class="delete-file-btn">&times;</button>` : ''}
                     </div>`).join('') || '<p class="text-gray-500">None</p>';
 
-                card.innerHTML = `
-                    <div class="border-b pb-4 mb-4 flex justify-between items-start">
-                        <div>
-                            <h3 class="text-xl font-bold">${formattedDate}</h3>
-                            <p class="text-gray-600 font-medium">${job.Scope}</p>
+                return `
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <div class="border-b pb-4 mb-4 flex justify-between items-start">
+                            <div>
+                                <h3 class="text-xl font-bold">${formattedDate}</h3>
+                                <p class="text-gray-600 font-medium">${job.Scope}</p>
+                            </div>
+                            ${!isPublic ? `
+                            <div class="flex items-center gap-2">
+                                <button class="edit-job-btn bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-1 px-3 rounded-md text-sm" data-job-id="${job.JobID}">Edit</button>
+                                <button class="delete-job-btn bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 rounded-md text-sm" data-job-id="${job.JobID}">Delete</button>
+                            </div>` : ''}
                         </div>
-                        ${!isPublic ? `
-                        <div class="flex items-center gap-2">
-                            <button class="edit-job-btn bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-1 px-3 rounded-md text-sm" data-job-id="${job.JobID}">Edit</button>
-                            <button class="delete-job-btn bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 rounded-md text-sm" data-job-id="${job.JobID}">Delete</button>
-                        </div>` : ''}
-                    </div>
-                    <p class="mb-4"><strong class="font-semibold">Notes:</strong> ${job.CompletionNotes || 'N/A'}</p>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
-                        <div><h4 class="font-semibold mb-2 text-center">Before</h4>${createGallery(job.BeforeShotURLs, 'BeforeShotURLs')}</div>
-                        <div><h4 class="font-semibold mb-2 text-center">After</h4>${createGallery(job.AfterShotURLs, 'AfterShotURLs')}</div>
-                    </div>
-                    <div><h4 class="font-semibold mb-2">Service Reports</h4>${reportsHTML}</div>`;
-                targetEl.appendChild(card);
-            });
+                        <p class="mb-4"><strong class="font-semibold">Notes:</strong> ${job.CompletionNotes || 'N/A'}</p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                            <div><h4 class="font-semibold mb-2 text-center">Before</h4>${createGallery(job.BeforeShotURLs, 'BeforeShotURLs')}</div>
+                            <div><h4 class="font-semibold mb-2 text-center">After</h4>${createGallery(job.AfterShotURLs, 'AfterShotURLs')}</div>
+                        </div>
+                        <div><h4 class="font-semibold mb-2">Service Reports</h4>${reportsHTML}</div>
+                    </div>`;
+            }).join('');
         }
         
         // --- MODALS & FILE HANDLING ---
-        function showModal(type, options) {
-            let modalEl, html;
+        function renderModal(type, options = {}) {
+            let html;
             switch(type) {
                 case 'alert':
-                    modalEl = alertModalEl;
-                    html = `<div class="modal-content text-center"><p class="mb-4 text-gray-700">${options.message}</p><button class="modal-ok bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-lg">OK</button></div>`;
+                    html = `<div class="modal-backdrop"><div class="modal-content text-center"><p class="mb-4 text-gray-700">${options.message}</p><button class="modal-close bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-lg">OK</button></div></div>`;
                     break;
                 case 'confirm':
-                    modalEl = confirmModalEl;
-                    html = `<div class="modal-content text-center"><p class="mb-4 text-gray-700">${options.message}</p><div class="flex justify-center gap-4"><button class="modal-cancel bg-gray-300 hover:bg-gray-400 font-bold py-2 px-6 rounded-lg">Cancel</button><button class="modal-confirm bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-lg">Confirm</button></div></div>`;
+                    html = `<div class="modal-backdrop"><div class="modal-content text-center"><p class="mb-4 text-gray-700">${options.message}</p><div class="flex justify-center gap-4"><button class="modal-close bg-gray-300 hover:bg-gray-400 font-bold py-2 px-6 rounded-lg">Cancel</button><button class="modal-confirm bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-lg">Confirm</button></div></div></div>`;
                     break;
                 case 'share':
-                     modalEl = shareLinkModalEl;
-                     html = `<div class="modal-content text-center"><h2 class="text-2xl font-semibold mb-4">Shareable Link</h2><p class="mb-4">Share this link with your customer.</p><input type="text" id="share-link-input" class="w-full p-2 border rounded-md bg-gray-100 text-center" value="${options.url}" readonly><div class="mt-6 flex gap-4 justify-center"><button id="copy-share-link-btn" class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg">Copy</button><button class="modal-close bg-gray-300 font-bold py-2 px-4 rounded-lg">Close</button></div></div>`;
+                     html = `<div class="modal-backdrop"><div class="modal-content text-center"><h2 class="text-2xl font-semibold mb-4">Shareable Link</h2><p class="mb-4">Share this link with your customer.</p><input type="text" id="share-link-input" class="w-full p-2 border rounded-md bg-gray-100 text-center" value="${options.url}" readonly><div class="mt-6 flex gap-4 justify-center"><button id="copy-share-link-btn" class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg">Copy</button><button class="modal-close bg-gray-300 font-bold py-2 px-4 rounded-lg">Close</button></div></div></div>`;
                      break;
+                case 'job':
+                    const { mode, jobData } = options;
+                    html = `<div class="modal-backdrop">
+                                <div class="modal-content">
+                                    <h2 class="text-2xl font-semibold mb-4">${mode === 'add' ? 'Add New Job' : 'Edit Job'}</h2>
+                                    <form id="add-job-form">
+                                        <input type="hidden" id="job-id-edit" value="${jobData?.JobID || ''}">
+                                        <div class="space-y-4">
+                                            <input type="date" id="job-date" class="w-full p-2 border rounded-md" value="${jobData?.Date || new Date().toISOString().split('T')[0]}" required>
+                                            <input type="text" id="job-scope" placeholder="Scope of Job" class="w-full p-2 border rounded-md" value="${jobData?.Scope || ''}" required>
+                                            <textarea id="job-notes" placeholder="Completion Notes" class="w-full p-2 border rounded-md" rows="3">${jobData?.CompletionNotes || ''}</textarea>
+                                            <div>
+                                                <h3 class="font-semibold text-lg mt-4">${mode === 'add' ? 'File Attachments' : 'Add More Files'}</h3>
+                                                <div id="before-drop-zone" class="drop-zone mt-2"><p>+ 'Before' photos</p><input type="file" id="before-file-input" class="hidden" accept="image/*" multiple><div id="before-file-list" class="file-list"></div></div>
+                                                <div id="after-drop-zone" class="drop-zone mt-4"><p>+ 'After' photos</p><input type="file" id="after-file-input" class="hidden" accept="image/*" multiple><div id="after-file-list" class="file-list"></div></div>
+                                                <div id="report-drop-zone" class="drop-zone mt-4"><p>+ Service reports</p><input type="file" id="report-file-input" class="hidden" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple><div id="report-file-list" class="file-list"></div></div>
+                                            </div>
+                                        </div>
+                                        <div class="mt-6 flex gap-4">
+                                            <button type="submit" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg flex-1">${mode === 'add' ? 'Save Job' : 'Update Job'}</button>
+                                            <button type="button" class="modal-close bg-gray-300 hover:bg-gray-400 font-bold py-2 px-4 rounded-lg flex-1">Cancel</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>`;
+                    break;
             }
-            modalEl.innerHTML = html;
-            modalEl.classList.remove('hidden');
+            modalContainer.innerHTML = html;
             
-            modalEl.querySelector('.modal-ok, .modal-close, .modal-cancel')?.addEventListener('click', () => modalEl.classList.add('hidden'));
+            // Attach generic close listeners
+            modalContainer.querySelectorAll('.modal-close, .modal-ok, .modal-cancel').forEach(btn => {
+                btn.addEventListener('click', () => modalContainer.innerHTML = '');
+            });
+
+            // Attach specific listeners
             if (type === 'confirm') {
-                modalEl.querySelector('.modal-confirm').addEventListener('click', () => {
-                    modalEl.classList.add('hidden');
+                modalContainer.querySelector('.modal-confirm').addEventListener('click', () => {
+                    modalContainer.innerHTML = '';
                     options.onConfirm();
                 });
             }
             if (type === 'share') {
-                 document.getElementById('copy-share-link-btn').addEventListener('click', () => {
-                    document.getElementById('share-link-input').select();
-                    navigator.clipboard.writeText(options.url).then(() => showModal('alert', {message: 'Link copied!'}));
+                 modalContainer.querySelector('#copy-share-link-btn').addEventListener('click', () => {
+                    modalContainer.querySelector('#share-link-input').select();
+                    navigator.clipboard.writeText(options.url).then(() => renderModal('alert', {message: 'Link copied!'}));
                 });
+            }
+            if (type === 'job') {
+                filesToUpload = { before: [], after: [], reports: [] };
+                modalContainer.querySelector('#add-job-form').addEventListener('submit', handleJobFormSubmit);
+                setupDropZone('before-drop-zone', 'before-file-input', 'before');
+                setupDropZone('after-drop-zone', 'after-file-input', 'after');
+                setupDropZone('report-drop-zone', 'report-file-input', 'reports');
             }
         }
         
         function setupDropZone(zoneId, inputId, type) {
             const dropZone = document.getElementById(zoneId);
             const fileInput = document.getElementById(inputId);
+            if (!dropZone || !fileInput) return;
+            
             dropZone.addEventListener('click', () => fileInput.click());
             fileInput.addEventListener('change', (e) => handleFileSelect(e.target.files, type));
             ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => dropZone.addEventListener(eventName, e => e.preventDefault()));
@@ -304,171 +318,143 @@
             });
         }
 
-        function setupJobModal(mode = 'add', jobData = null) {
-            const modalHTML = `
-                <div class="modal-content">
-                    <h2 id="job-modal-title" class="text-2xl font-semibold mb-4">${mode === 'add' ? 'Add New Job' : 'Edit Job'}</h2>
-                    <form id="add-job-form">
-                        <input type="hidden" id="job-id-edit" value="${jobData?.JobID || ''}">
+        // --- EVENT DELEGATION ---
+        document.addEventListener('click', async (e) => {
+            const target = e.target.closest('button');
+            if (!target) return;
+
+            // Dashboard View
+            if (target.id === 'show-add-customer-form-btn') {
+                const container = document.getElementById('add-customer-form-container');
+                container.innerHTML = `
+                    <form id="add-customer-form-inner">
+                        <h2 class="text-2xl font-semibold mb-4">New Customer Details</h2>
                         <div class="space-y-4">
-                            <input type="date" id="job-date" class="w-full p-2 border rounded-md" value="${jobData?.Date || ''}" required>
-                            <input type="text" id="job-scope" placeholder="Scope of Job" class="w-full p-2 border rounded-md" value="${jobData?.Scope || ''}" required>
-                            <textarea id="job-notes" placeholder="Completion Notes" class="w-full p-2 border rounded-md" rows="3">${jobData?.CompletionNotes || ''}</textarea>
-                            <div>
-                                <h3 class="font-semibold text-lg mt-4">${mode === 'add' ? 'File Attachments' : 'Add More Files'}</h3>
-                                <div id="before-drop-zone" class="drop-zone mt-2"><p>+ 'Before' photos</p><input type="file" id="before-file-input" class="hidden" accept="image/*" multiple><div id="before-file-list" class="file-list"></div></div>
-                                <div id="after-drop-zone" class="drop-zone mt-4"><p>+ 'After' photos</p><input type="file" id="after-file-input" class="hidden" accept="image/*" multiple><div id="after-file-list" class="file-list"></div></div>
-                                <div id="report-drop-zone" class="drop-zone mt-4"><p>+ Service reports</p><input type="file" id="report-file-input" class="hidden" accept=".pdf,.doc,.docx,application/*" multiple><div id="report-file-list" class="file-list"></div></div>
-                            </div>
+                            <input type="text" name="name" placeholder="Customer Name" class="p-2 border rounded-md w-full" required>
+                            <input type="text" name="location" placeholder="Location" class="p-2 border rounded-md w-full" required>
+                            <input type="text" name="frequency" placeholder="Service Frequency" class="p-2 border rounded-md w-full" required>
                         </div>
-                        <div class="mt-6 flex gap-4">
-                            <button type="submit" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg flex-1">${mode === 'add' ? 'Save Job' : 'Update Job'}</button>
-                            <button type="button" class="modal-close bg-gray-300 hover:bg-gray-400 font-bold py-2 px-4 rounded-lg flex-1">Cancel</button>
+                        <div class="mt-4 flex gap-4">
+                            <button type="submit" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg">Save</button>
+                            <button type="button" id="cancel-add-customer-btn" class="bg-gray-300 hover:bg-gray-400 font-bold py-2 px-4 rounded-lg">Cancel</button>
                         </div>
-                    </form>
-                </div>`;
-            addJobModalEl.innerHTML = modalHTML;
-            addJobModalEl.classList.remove('hidden');
-            filesToUpload = { before: [], after: [], reports: [] };
-            
-            // Re-attach listeners for the new modal content
-            addJobModalEl.querySelector('.modal-close').addEventListener('click', () => addJobModalEl.classList.add('hidden'));
-            addJobModalEl.querySelector('#add-job-form').addEventListener('submit', handleJobFormSubmit);
-            setupDropZone('before-drop-zone', 'before-file-input', 'before');
-            setupDropZone('after-drop-zone', 'after-file-input', 'after');
-            setupDropZone('report-drop-zone', 'report-file-input', 'reports');
-        }
+                    </form>`;
+                container.classList.remove('hidden');
+            }
+            if (target.id === 'cancel-add-customer-btn') {
+                document.getElementById('add-customer-form-container').classList.add('hidden');
+            }
+            if (target.classList.contains('view-jobs-btn')) {
+                await renderCustomerJobsView(target.dataset.id);
+            }
+            if (target.classList.contains('share-link-btn')) {
+                const shareUrl = `${window.location.href.split('?')[0]}?customer=${target.dataset.id}`;
+                renderModal('share', { url: shareUrl });
+            }
 
-        // --- EVENT HANDLERS ---
-        document.addEventListener('DOMContentLoaded', handleRouting);
-
-        document.getElementById('show-add-customer-form-btn').addEventListener('click', () => {
-            addCustomerFormContainer.innerHTML = `
-                <h2 class="text-2xl font-semibold mb-4">New Customer Details</h2>
-                <form id="add-customer-form-inner">
-                    <div class="space-y-4">
-                        <input type="text" id="customer-name" placeholder="Customer Name" class="p-2 border rounded-md w-full" required>
-                        <input type="text" id="customer-location" placeholder="Location" class="p-2 border rounded-md w-full" required>
-                        <input type="text" id="service-frequency" placeholder="Service Frequency" class="p-2 border rounded-md w-full" required>
-                    </div>
-                    <div class="mt-4 flex gap-4">
-                        <button type="submit" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg">Save</button>
-                        <button type="button" id="cancel-add-customer-btn" class="bg-gray-300 hover:bg-gray-400 font-bold py-2 px-4 rounded-lg">Cancel</button>
-                    </div>
-                </form>`;
-            addCustomerFormContainer.classList.remove('hidden');
-            document.getElementById('cancel-add-customer-btn').addEventListener('click', () => addCustomerFormContainer.classList.add('hidden'));
-            document.getElementById('add-customer-form-inner').addEventListener('submit', async (e) => {
+            // Customer Job View
+            if (target.id === 'back-to-dashboard-btn') {
+                window.history.pushState({}, '', window.location.pathname);
+                handleRouting();
+            }
+            if (target.id === 'show-add-job-form-btn') {
+                renderModal('job', { mode: 'add' });
+            }
+            if (target.classList.contains('edit-job-btn')) {
+                const jobData = state.jobs[state.currentCustomerId].find(j => j.JobID === target.dataset.jobId);
+                if (jobData) renderModal('job', { mode: 'edit', jobData });
+            }
+            if (target.classList.contains('delete-job-btn')) {
+                renderModal('confirm', {
+                    message: 'Are you sure you want to permanently delete this job report?',
+                    onConfirm: async () => {
+                        const result = await fetchApi(`${WEB_APP_URL}?action=deleteJob`, { method: 'POST', body: JSON.stringify({ payload: { jobId: target.dataset.jobId } }) });
+                        if (result) {
+                            renderModal('alert', { message: 'Job deleted.' });
+                            renderCustomerJobsView(state.currentCustomerId);
+                        }
+                    }
+                });
+            }
+            if (target.classList.contains('delete-file-btn')) {
+                 renderModal('confirm', {
+                    message: 'Are you sure you want to delete this file?',
+                    onConfirm: async () => {
+                        const payload = { jobId: target.dataset.jobId, fileUrl: target.dataset.fileUrl, fileType: target.dataset.fileType };
+                        const result = await fetchApi(`${WEB_APP_URL}?action=deleteFile`, { method: 'POST', body: JSON.stringify({ payload }) });
+                        if (result) {
+                            renderModal('alert', { message: 'File deleted.' });
+                            renderCustomerJobsView(state.currentCustomerId);
+                        }
+                    }
+                });
+            }
+        });
+        
+        document.addEventListener('submit', async (e) => {
+            if (e.target.id === 'add-customer-form-inner') {
                 e.preventDefault();
-                const payload = {
-                    name: document.getElementById('customer-name').value.trim(),
-                    location: document.getElementById('customer-location').value.trim(),
-                    frequency: document.getElementById('service-frequency').value.trim()
-                };
+                const formData = new FormData(e.target);
+                const payload = Object.fromEntries(formData.entries());
                 const newCustomer = await fetchApi(`${WEB_APP_URL}?action=addCustomer`, { method: 'POST', body: JSON.stringify({ payload }) });
                 if (newCustomer) {
                     state.customers.push(newCustomer);
-                    addCustomerFormContainer.classList.add('hidden');
-                    renderCustomerList(state.customers);
-                    showModal('alert', {message: 'Customer added successfully!'});
+                    document.getElementById('add-customer-form-container').classList.add('hidden');
+                    document.getElementById('customer-list').innerHTML = renderCustomerList(state.customers);
+                    renderModal('alert', {message: 'Customer added successfully!'});
                 }
-            });
-        });
-
-        customerListEl.addEventListener('click', (e) => {
-            const btn = e.target.closest('button');
-            if (!btn) return;
-            if (btn.classList.contains('view-jobs-btn')) loadCustomerJobsView(btn.dataset.id);
-            if (btn.classList.contains('share-link-btn')) {
-                const shareUrl = `${window.location.href.split('?')[0]}?customer=${btn.dataset.id}`;
-                showModal('share', { url: shareUrl });
+            }
+            if (e.target.id === 'add-job-form') {
+                handleJobFormSubmit(e);
             }
         });
-        
-        jobListEl.addEventListener('click', (e) => {
-            const btn = e.target.closest('button');
-            if (!btn) return;
-            const jobId = btn.dataset.jobId;
-            if (btn.classList.contains('edit-job-btn')) {
-                const jobData = state.jobs[state.currentCustomerId].find(j => j.JobID === jobId);
-                if (jobData) setupJobModal('edit', jobData);
-            }
-            if (btn.classList.contains('delete-job-btn')) {
-                showModal('confirm', {
-                    message: 'Are you sure you want to permanently delete this job report?',
-                    onConfirm: async () => {
-                        const result = await fetchApi(`${WEB_APP_URL}?action=deleteJob`, { method: 'POST', body: JSON.stringify({ payload: { jobId } }) });
-                        if (result) {
-                            showModal('alert', { message: 'Job deleted.' });
-                            loadCustomerJobsView(state.currentCustomerId);
-                        }
-                    }
-                });
-            }
-            if (btn.classList.contains('delete-file-btn')) {
-                const fileUrl = btn.dataset.fileUrl;
-                const fileType = btn.dataset.fileType;
-                showModal('confirm', {
-                    message: 'Are you sure you want to delete this file?',
-                    onConfirm: async () => {
-                        const payload = { jobId, fileUrl, fileType };
-                        const result = await fetchApi(`${WEB_APP_URL}?action=deleteFile`, { method: 'POST', body: JSON.stringify({ payload }) });
-                        if (result) {
-                            showModal('alert', { message: 'File deleted.' });
-                            loadCustomerJobsView(state.currentCustomerId);
-                        }
-                    }
-                });
-            }
-        });
-
-        document.getElementById('back-to-dashboard-btn').addEventListener('click', () => {
-            window.history.pushState({}, '', window.location.pathname);
-            handleRouting();
-        });
-
-        document.getElementById('show-add-job-form-btn').addEventListener('click', () => setupJobModal('add'));
         
         async function handleJobFormSubmit(e) {
             e.preventDefault();
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = `<span class="spinner-inline"></span> Saving...`;
+
             const editJobId = document.getElementById('job-id-edit').value;
             
-            if (editJobId) { // UPDATE
-                const payload = {
-                    jobId: editJobId,
-                    date: document.getElementById('job-date').value,
-                    scope: document.getElementById('job-scope').value.trim(),
-                    notes: document.getElementById('job-notes').value.trim(),
-                };
-                const updateResult = await fetchApi(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'updateJob', payload }) });
-                
-                const hasFiles = filesToUpload.before.length > 0 || filesToUpload.after.length > 0 || filesToUpload.reports.length > 0;
-                if (hasFiles) {
-                    const filePayload = { jobId: editJobId, customerName: state.currentCustomer.Name, date: payload.date, scope: payload.scope, files: filesToUpload };
-                    await fetchApi(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'addFilesToJob', payload: filePayload }) });
+            try {
+                if (editJobId) { // UPDATE
+                    const payload = {
+                        jobId: editJobId,
+                        date: document.getElementById('job-date').value,
+                        scope: document.getElementById('job-scope').value.trim(),
+                        notes: document.getElementById('job-notes').value.trim(),
+                    };
+                    await fetchApi(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'updateJob', payload }) });
+                    
+                    const hasFiles = filesToUpload.before.length > 0 || filesToUpload.after.length > 0 || filesToUpload.reports.length > 0;
+                    if (hasFiles) {
+                        const filePayload = { jobId: editJobId, customerName: state.currentCustomer.Name, date: payload.date, scope: payload.scope, files: filesToUpload };
+                        await fetchApi(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'addFilesToJob', payload: filePayload }) });
+                    }
+                    renderModal('alert', { message: 'Job updated successfully!' });
+                } else { // ADD
+                    const payload = {
+                        customerId: state.currentCustomer.CustomerID,
+                        customerName: state.currentCustomer.Name,
+                        date: document.getElementById('job-date').value,
+                        scope: document.getElementById('job-scope').value.trim(),
+                        notes: document.getElementById('job-notes').value.trim(),
+                        files: filesToUpload
+                    };
+                    await fetchApi(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'addJob', payload }) });
+                    renderModal('alert', { message: 'Job added successfully!' });
                 }
-                if (updateResult) {
-                    addJobModalEl.classList.add('hidden');
-                    showModal('alert', { message: 'Job updated successfully!' });
-                    await loadCustomerJobsView(state.currentCustomerId);
-                }
-            } else { // ADD
-                const payload = {
-                    customerId: state.currentCustomer.CustomerID,
-                    customerName: state.currentCustomer.Name,
-                    date: document.getElementById('job-date').value,
-                    scope: document.getElementById('job-scope').value.trim(),
-                    notes: document.getElementById('job-notes').value.trim(),
-                    files: filesToUpload
-                };
-                const newJob = await fetchApi(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'addJob', payload }) });
-                if (newJob) {
-                    addJobModalEl.classList.add('hidden');
-                    showModal('alert', { message: 'Job added successfully!' });
-                    loadCustomerJobsView(state.currentCustomerId);
-                }
+                modalContainer.innerHTML = '';
+                await renderCustomerJobsView(state.currentCustomerId);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = editJobId ? 'Update Job' : 'Save Job';
             }
         }
+        
+        // --- INITIALIZATION ---
+        document.addEventListener('DOMContentLoaded', handleRouting);
     </script>
 </body>
 </html>
