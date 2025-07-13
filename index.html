@@ -305,19 +305,40 @@
         }
 
         function handleFileSelect(files, type) {
-            if (!files) return;
-            filesToUpload[type] = [];
-            const fileListEl = document.getElementById(`${type}-file-list`);
-            fileListEl.innerHTML = '';
-            Array.from(files).forEach(file => {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    filesToUpload[type].push({ name: file.name, mimeType: file.type, base64: e.target.result.split(',')[1] });
-                    fileListEl.innerHTML += `<div class="file-list-item">${file.name}</div>`;
-                };
-                reader.readAsDataURL(file);
-            });
-        }
+    if (!files) return;
+    filesToUpload[type] = [];
+    const fileListEl = document.getElementById(`${type}-file-list`);
+    fileListEl.innerHTML = '';
+
+    Array.from(files).forEach(file => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const base64Data = e.target.result.split(',')[1];
+            const mimeType = file.type || guessMimeType(file.name);
+            const fileObj = {
+                name: file.name,
+                mimeType,
+                base64: base64Data
+            };
+            filesToUpload[type].push(fileObj);
+            fileListEl.innerHTML += `<div class="file-list-item">${file.name}</div>`;
+        };
+        reader.readAsDataURL(file);
+    });
+}
+function guessMimeType(filename) {
+    const ext = filename.split('.').pop().toLowerCase();
+    switch (ext) {
+        case 'pdf': return 'application/pdf';
+        case 'doc': return 'application/msword';
+        case 'docx': return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+        case 'jpg':
+        case 'jpeg': return 'image/jpeg';
+        case 'png': return 'image/png';
+        default: return 'application/octet-stream';
+    }
+}
+
 
         // --- EVENT DELEGATION ---
         document.addEventListener('click', async (e) => {
@@ -411,49 +432,56 @@
         });
         
         async function handleJobFormSubmit(e) {
-            e.preventDefault();
-            const form = e.target;
-            const submitBtn = form.querySelector('button[type="submit"]');
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = `<span class="spinner-inline"></span> Saving...`;
+    e.preventDefault();
+    const form = e.target;
+    const submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = `<span class="spinner-inline"></span> Saving...`;
 
-            const editJobId = form.querySelector('#job-id-edit').value;
-            
-            try {
-                if (editJobId) { // UPDATE
-                    const payload = {
-                        jobId: editJobId,
-                        date: form.querySelector('#job-date').value,
-                        scope: form.querySelector('#job-scope').value.trim(),
-                        notes: form.querySelector('#job-notes').value.trim(),
-                    };
-                    await fetchApi(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'updateJob', payload }) });
-                    
-                    const hasFiles = filesToUpload.before.length > 0 || filesToUpload.after.length > 0 || filesToUpload.reports.length > 0;
-                    if (hasFiles) {
-                        const filePayload = { jobId: editJobId, customerName: state.currentCustomer.Name, date: payload.date, scope: payload.scope, files: filesToUpload };
-                        await fetchApi(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'addFilesToJob', payload: filePayload }) });
-                    }
-                    renderModal('alert', { message: 'Job updated successfully!' });
-                } else { // ADD
-                    const payload = {
-                        customerId: state.currentCustomer.CustomerID,
-                        customerName: state.currentCustomer.Name,
-                        date: form.querySelector('#job-date').value,
-                        scope: form.querySelector('#job-scope').value.trim(),
-                        notes: form.querySelector('#job-notes').value.trim(),
-                        files: filesToUpload
-                    };
-                    await fetchApi(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'addJob', payload }) });
-                    renderModal('alert', { message: 'Job added successfully!' });
-                }
-                modalContainer.innerHTML = '';
-                await renderCustomerJobsView(state.currentCustomerId);
-            } finally {
-                // This block will run even if errors occur in the try block
-                // No need to re-enable the button here as the modal will be gone
+    const editJobId = form.querySelector('#job-id-edit').value;
+
+    try {
+        const payload = {
+            customerId: state.currentCustomer.CustomerID,
+            customerName: state.currentCustomer.Name,
+            date: form.querySelector('#job-date').value,
+            scope: form.querySelector('#job-scope').value.trim(),
+            notes: form.querySelector('#job-notes').value.trim(),
+            files: filesToUpload
+        };
+
+        if (editJobId) {
+            await fetchApi(WEB_APP_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'updateJob', payload: { ...payload, jobId: editJobId } })
+            });
+
+            const hasFiles = filesToUpload.before.length || filesToUpload.after.length || filesToUpload.reports.length;
+            if (hasFiles) {
+                await fetchApi(WEB_APP_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'addFilesToJob', payload: { ...payload, jobId: editJobId } })
+                });
             }
+
+            renderModal('alert', { message: 'Job updated successfully!' });
+        } else {
+            const res = await fetchApi(WEB_APP_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'addJob', payload })
+            });
+            if (!res) throw new Error("Failed to save new job.");
+            renderModal('alert', { message: 'Job added successfully!' });
         }
+
+        modalContainer.innerHTML = '';
+        await renderCustomerJobsView(state.currentCustomerId);
+    } catch (err) {
+        renderModal('alert', { message: `Error saving job: ${err.message}` });
+        console.error("Job save error:", err);
+    }
+}
+
         
         // --- INITIALIZATION ---
         document.addEventListener('DOMContentLoaded', handleRouting);
