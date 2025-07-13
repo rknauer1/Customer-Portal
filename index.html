@@ -97,11 +97,19 @@
             const params = new URLSearchParams(window.location.search);
             const customerIdParam = params.get('customer');
             
+            // Always fetch customers first for routing and state
+            state.customers = await fetchApi(`${WEB_APP_URL}?action=getCustomers`) || [];
+
             if (customerIdParam) {
-                const data = await fetchApi(`${WEB_APP_URL}?action=getCustomerAndJobs&customerId=${customerIdParam}`);
-                if (data) renderPublicView(data.customer, data.jobs);
+                const customer = state.customers.find(c => c.CustomerID === customerIdParam);
+                if (customer) {
+                    const jobs = await fetchApi(`${WEB_APP_URL}?action=getJobs&customerId=${customerIdParam}`) || [];
+                    renderPublicView(customer, jobs);
+                } else {
+                    renderModal('alert', { message: 'Customer not found from the provided link.' });
+                    renderDashboardView();
+                }
             } else {
-                state.customers = await fetchApi(`${WEB_APP_URL}?action=getCustomers`) || [];
                 renderDashboardView();
             }
         }
@@ -184,9 +192,10 @@
                 const jobDate = new Date(job.Date);
                 const formattedDate = isNaN(jobDate) ? 'Invalid Date' : new Date(jobDate.getTime() + jobDate.getTimezoneOffset() * 60000).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
                 
+                // *** FIX: Use the direct /preview URL for images. It's more reliable than /thumbnail. ***
                 const createGallery = (urls, fileType) => (urls || []).map(url => `
                     <div class="relative group">
-                        <a href="${url}" target="_blank" rel="noopener noreferrer"><img src="${url.replace('/preview', '/thumbnail')}" class="w-full h-auto rounded-lg shadow-sm mb-2" onerror="this.style.display='none'"></a>
+                        <a href="${url}" target="_blank" rel="noopener noreferrer"><img src="${url}" class="w-full h-auto rounded-lg shadow-sm mb-2" onerror="this.parentElement.style.display='none'"></a>
                         ${!isPublic ? `<button data-job-id="${job.JobID}" data-file-url="${url}" data-file-type="${fileType}" class="delete-file-btn absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">&times;</button>` : ''}
                     </div>`).join('') || '<p class="text-center text-gray-500">None</p>';
                 
@@ -247,7 +256,8 @@
                                                 <h3 class="font-semibold text-lg mt-4">${mode === 'add' ? 'File Attachments' : 'Add More Files'}</h3>
                                                 <div id="before-drop-zone" class="drop-zone mt-2"><p>+ 'Before' photos</p><input type="file" id="before-file-input" class="hidden" accept="image/*" multiple><div id="before-file-list" class="file-list"></div></div>
                                                 <div id="after-drop-zone" class="drop-zone mt-4"><p>+ 'After' photos</p><input type="file" id="after-file-input" class="hidden" accept="image/*" multiple><div id="after-file-list" class="file-list"></div></div>
-                                                <div id="report-drop-zone" class="drop-zone mt-4"><p>+ Service reports</p><input type="file" id="report-file-input" class="hidden" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple><div id="report-file-list" class="file-list"></div></div>
+                                                <!-- *** FIX: Changed ID from report-file-list to reports-file-list *** -->
+                                                <div id="report-drop-zone" class="drop-zone mt-4"><p>+ Service reports</p><input type="file" id="report-file-input" class="hidden" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple><div id="reports-file-list" class="file-list"></div></div>
                                             </div>
                                         </div>
                                         <div class="mt-6 flex gap-4">
@@ -305,40 +315,23 @@
         }
 
         function handleFileSelect(files, type) {
-    if (!files) return;
-    filesToUpload[type] = [];
-    const fileListEl = document.getElementById(`${type}-file-list`);
-    fileListEl.innerHTML = '';
-
-    Array.from(files).forEach(file => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const base64Data = e.target.result.split(',')[1];
-            const mimeType = file.type || guessMimeType(file.name);
-            const fileObj = {
-                name: file.name,
-                mimeType,
-                base64: base64Data
-            };
-            filesToUpload[type].push(fileObj);
-            fileListEl.innerHTML += `<div class="file-list-item">${file.name}</div>`;
-        };
-        reader.readAsDataURL(file);
-    });
-}
-function guessMimeType(filename) {
-    const ext = filename.split('.').pop().toLowerCase();
-    switch (ext) {
-        case 'pdf': return 'application/pdf';
-        case 'doc': return 'application/msword';
-        case 'docx': return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-        case 'jpg':
-        case 'jpeg': return 'image/jpeg';
-        case 'png': return 'image/png';
-        default: return 'application/octet-stream';
-    }
-}
-
+            if (!files) return;
+            filesToUpload[type] = [];
+            const fileListEl = document.getElementById(`${type}-file-list`);
+            if (!fileListEl) {
+                console.error(`File list element not found for type: ${type}-file-list`);
+                return;
+            }
+            fileListEl.innerHTML = '';
+            Array.from(files).forEach(file => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    filesToUpload[type].push({ name: file.name, mimeType: file.type, base64: e.target.result.split(',')[1] });
+                    fileListEl.innerHTML += `<div class="file-list-item">${file.name}</div>`;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
 
         // --- EVENT DELEGATION ---
         document.addEventListener('click', async (e) => {
@@ -432,56 +425,49 @@ function guessMimeType(filename) {
         });
         
         async function handleJobFormSubmit(e) {
-    e.preventDefault();
-    const form = e.target;
-    const submitBtn = form.querySelector('button[type="submit"]');
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = `<span class="spinner-inline"></span> Saving...`;
+            e.preventDefault();
+            const form = e.target;
+            const submitBtn = form.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = `<span class="spinner-inline"></span> Saving...`;
 
-    const editJobId = form.querySelector('#job-id-edit').value;
-
-    try {
-        const payload = {
-            customerId: state.currentCustomer.CustomerID,
-            customerName: state.currentCustomer.Name,
-            date: form.querySelector('#job-date').value,
-            scope: form.querySelector('#job-scope').value.trim(),
-            notes: form.querySelector('#job-notes').value.trim(),
-            files: filesToUpload
-        };
-
-        if (editJobId) {
-            await fetchApi(WEB_APP_URL, {
-                method: 'POST',
-                body: JSON.stringify({ action: 'updateJob', payload: { ...payload, jobId: editJobId } })
-            });
-
-            const hasFiles = filesToUpload.before.length || filesToUpload.after.length || filesToUpload.reports.length;
-            if (hasFiles) {
-                await fetchApi(WEB_APP_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ action: 'addFilesToJob', payload: { ...payload, jobId: editJobId } })
-                });
+            const editJobId = form.querySelector('#job-id-edit').value;
+            
+            try {
+                if (editJobId) { // UPDATE
+                    const payload = {
+                        jobId: editJobId,
+                        date: form.querySelector('#job-date').value,
+                        scope: form.querySelector('#job-scope').value.trim(),
+                        notes: form.querySelector('#job-notes').value.trim(),
+                    };
+                    await fetchApi(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'updateJob', payload }) });
+                    
+                    const hasFiles = filesToUpload.before.length > 0 || filesToUpload.after.length > 0 || filesToUpload.reports.length > 0;
+                    if (hasFiles) {
+                        const filePayload = { jobId: editJobId, customerName: state.currentCustomer.Name, date: payload.date, scope: payload.scope, files: filesToUpload };
+                        await fetchApi(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'addFilesToJob', payload: filePayload }) });
+                    }
+                    renderModal('alert', { message: 'Job updated successfully!' });
+                } else { // ADD
+                    const payload = {
+                        customerId: state.currentCustomer.CustomerID,
+                        customerName: state.currentCustomer.Name,
+                        date: form.querySelector('#job-date').value,
+                        scope: form.querySelector('#job-scope').value.trim(),
+                        notes: form.querySelector('#job-notes').value.trim(),
+                        files: filesToUpload
+                    };
+                    await fetchApi(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'addJob', payload }) });
+                    renderModal('alert', { message: 'Job added successfully!' });
+                }
+                modalContainer.innerHTML = '';
+                await renderCustomerJobsView(state.currentCustomerId);
+            } finally {
+                // This block will run even if errors occur in the try block
+                // No need to re-enable the button here as the modal will be gone
             }
-
-            renderModal('alert', { message: 'Job updated successfully!' });
-        } else {
-            const res = await fetchApi(WEB_APP_URL, {
-                method: 'POST',
-                body: JSON.stringify({ action: 'addJob', payload })
-            });
-            if (!res) throw new Error("Failed to save new job.");
-            renderModal('alert', { message: 'Job added successfully!' });
         }
-
-        modalContainer.innerHTML = '';
-        await renderCustomerJobsView(state.currentCustomerId);
-    } catch (err) {
-        renderModal('alert', { message: `Error saving job: ${err.message}` });
-        console.error("Job save error:", err);
-    }
-}
-
         
         // --- INITIALIZATION ---
         document.addEventListener('DOMContentLoaded', handleRouting);
