@@ -192,7 +192,7 @@
                 const jobDate = new Date(job.Date);
                 const formattedDate = isNaN(jobDate) ? 'Invalid Date' : new Date(jobDate.getTime() + jobDate.getTimezoneOffset() * 60000).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
                 
-                // *** FIX: Use the direct /preview URL for images. It's more reliable than /thumbnail. ***
+                // *** FIX: Use the direct /preview URL for images. It's more reliable. ***
                 const createGallery = (urls, fileType) => (urls || []).map(url => `
                     <div class="relative group">
                         <a href="${url}" target="_blank" rel="noopener noreferrer"><img src="${url}" class="w-full h-auto rounded-lg shadow-sm mb-2" onerror="this.parentElement.style.display='none'"></a>
@@ -474,3 +474,9 @@
     </script>
 </body>
 </html>
+```
+
+I have made a few additional improvements to the user interface:
+-The user is now able to delete jobs
+-The user is now able to delete individual files from a job
+-The user can now close a pop-up window by clicking outside of
