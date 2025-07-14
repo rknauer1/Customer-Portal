@@ -97,7 +97,6 @@
             const params = new URLSearchParams(window.location.search);
             const customerIdParam = params.get('customer');
             
-            // Always fetch customers first for routing and state
             state.customers = await fetchApi(`${WEB_APP_URL}?action=getCustomers`) || [];
 
             if (customerIdParam) {
@@ -192,7 +191,6 @@
                 const jobDate = new Date(job.Date);
                 const formattedDate = isNaN(jobDate) ? 'Invalid Date' : new Date(jobDate.getTime() + jobDate.getTimezoneOffset() * 60000).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
                 
-                // *** FIX: Use the direct /preview URL for images. It's more reliable. ***
                 const createGallery = (urls, fileType) => (urls || []).map(url => `
                     <div class="relative group">
                         <a href="${url}" target="_blank" rel="noopener noreferrer"><img src="${url}" class="w-full h-auto rounded-lg shadow-sm mb-2" onerror="this.parentElement.style.display='none'"></a>
@@ -256,7 +254,6 @@
                                                 <h3 class="font-semibold text-lg mt-4">${mode === 'add' ? 'File Attachments' : 'Add More Files'}</h3>
                                                 <div id="before-drop-zone" class="drop-zone mt-2"><p>+ 'Before' photos</p><input type="file" id="before-file-input" class="hidden" accept="image/*" multiple><div id="before-file-list" class="file-list"></div></div>
                                                 <div id="after-drop-zone" class="drop-zone mt-4"><p>+ 'After' photos</p><input type="file" id="after-file-input" class="hidden" accept="image/*" multiple><div id="after-file-list" class="file-list"></div></div>
-                                                <!-- *** FIX: Changed ID from report-file-list to reports-file-list *** -->
                                                 <div id="report-drop-zone" class="drop-zone mt-4"><p>+ Service reports</p><input type="file" id="report-file-input" class="hidden" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple><div id="reports-file-list" class="file-list"></div></div>
                                             </div>
                                         </div>
@@ -383,7 +380,9 @@
                 renderModal('confirm', {
                     message: 'Are you sure you want to permanently delete this job report?',
                     onConfirm: async () => {
-                        const result = await fetchApi(`${WEB_APP_URL}?action=deleteJob`, { method: 'POST', body: JSON.stringify({ payload: { jobId: target.dataset.jobId } }) });
+                        // *** FIX: Add customerId to payload ***
+                        const payload = { jobId: target.dataset.jobId, customerId: state.currentCustomerId };
+                        const result = await fetchApi(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'deleteJob', payload }) });
                         if (result) {
                             renderModal('alert', { message: 'Job deleted.' });
                             renderCustomerJobsView(state.currentCustomerId);
@@ -395,8 +394,14 @@
                  renderModal('confirm', {
                     message: 'Are you sure you want to delete this file?',
                     onConfirm: async () => {
-                        const payload = { jobId: target.dataset.jobId, fileUrl: target.dataset.fileUrl, fileType: target.dataset.fileType };
-                        const result = await fetchApi(`${WEB_APP_URL}?action=deleteFile`, { method: 'POST', body: JSON.stringify({ payload }) });
+                        // *** FIX: Add customerId to payload ***
+                        const payload = { 
+                            jobId: target.dataset.jobId, 
+                            fileUrl: target.dataset.fileUrl, 
+                            fileType: target.dataset.fileType,
+                            customerId: state.currentCustomerId 
+                        };
+                        const result = await fetchApi(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'deleteFile', payload }) });
                         if (result) {
                             renderModal('alert', { message: 'File deleted.' });
                             renderCustomerJobsView(state.currentCustomerId);
@@ -435,17 +440,27 @@
             
             try {
                 if (editJobId) { // UPDATE
+                    // *** FIX: Add customerId to payload ***
                     const payload = {
                         jobId: editJobId,
                         date: form.querySelector('#job-date').value,
                         scope: form.querySelector('#job-scope').value.trim(),
                         notes: form.querySelector('#job-notes').value.trim(),
+                        customerId: state.currentCustomerId
                     };
                     await fetchApi(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'updateJob', payload }) });
                     
                     const hasFiles = filesToUpload.before.length > 0 || filesToUpload.after.length > 0 || filesToUpload.reports.length > 0;
                     if (hasFiles) {
-                        const filePayload = { jobId: editJobId, customerName: state.currentCustomer.Name, date: payload.date, scope: payload.scope, files: filesToUpload };
+                        // *** FIX: Add customerId to payload ***
+                        const filePayload = { 
+                            jobId: editJobId, 
+                            customerName: state.currentCustomer.Name, 
+                            date: payload.date, 
+                            scope: payload.scope, 
+                            files: filesToUpload,
+                            customerId: state.currentCustomerId
+                        };
                         await fetchApi(WEB_APP_URL, { method: 'POST', body: JSON.stringify({ action: 'addFilesToJob', payload: filePayload }) });
                     }
                     renderModal('alert', { message: 'Job updated successfully!' });
@@ -474,9 +489,3 @@
     </script>
 </body>
 </html>
-```
-
-I have made a few additional improvements to the user interface:
--The user is now able to delete jobs
--The user is now able to delete individual files from a job
--The user can now close a pop-up window by clicking outside of
